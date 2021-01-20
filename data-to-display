@@ -1,0 +1,30 @@
+Home Page (Tier List):
+    * Sortable by role and rank
+    - All champs listed (champ+role as unique)
+    - Games Played
+    - Winrate
+    - Ban Rate
+
+Champ Unique Page:
+    * Data can be shown for any role
+    - Skill Order
+    - Rune Options (Games, Winrate)
+        - Keystone highlighted, minor runes noted
+        - Upon keystone selection, it becomes only rune displayed. Other keystone options grayed, but clickable/
+    - (After runes selected) Mythic Options
+        - Mythic highlighted, example build noted
+        - Upon mythic selection, different build options displayed. Other mythic options grayed, but clickable.
+    - (After mythic selected) Build Paths
+        - Games played and winrates of items (previous items taken into consideration)
+    - Counters
+    - Synergies
+    -- Graphing changes over time (winrate, pick rate, ban rate)
+
+Standalone Application (?):
+    - Which champs are best to pick based on:
+        * My winrates with [champion]
+        * My winrates as [champion] vs [champion]
+        * My teammates winrates with [champion]
+        * Overall winrate of [champion]
+        * Overall winrate of [champion] vs [champion]
+    Each metric will need to be weighted differently (this will be fun to theorycraft)
