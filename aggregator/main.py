@@ -2,6 +2,8 @@ from boto3.session import Session
 from datetime import datetime
 import time
 import requests
+from dotenv import load_dotenv
+load_dotenv()
 import os
 
 REGION = 'na1'
@@ -50,10 +52,23 @@ def get_player_or_game():
     games = sum(1 for _ in game_queue.objects.all())
     return get_next_player() if players >= games else get_next_game()
 
-def explore_player(accountId):
-    print(f'{API_URL}/lol/match/v4/matchlists/by-account/{accountId}')
-    response = s.get(f'{API_URL}/lol/match/v4/matchlists/by-account/{accountId}?queue=420', headers=HEADERS)
-    return response
+def explore_player(accountId, begin=0):
+    print(f'{API_URL}/lol/match/v4/matchlists/by-account/{accountId}?queue=420&beginIndex={begin}')
+    response = s.get(f'{API_URL}/lol/match/v4/matchlists/by-account/{accountId}?queue=420&beginIndex={begin}', headers=HEADERS)
+    #TODO: Error handling for all possible repsonses!
+    if response.status_code == 200:
+        body = response.json()
+        session = Session(profile_name="Default")
+        s3 = session.resource("s3")
+        for match in body['matches']:
+            pass
+            #s3.Bucket('lol-stats-games-queue').put_object(Key=str(match["gameId"]), Body='')
+            #print(f'{str(match["gameId"])} added to queue')
+        print(body['totalGames'], body['endIndex'])
+        if (body['totalGames'] > body['endIndex']):
+            explore_player(accountId, begin=body['endIndex']+1)
+    elif response.status_code == 429:
+        pass #handle rate limit
 
 def explore_game(gameId):
     return "Exploring Game"
