@@ -1,0 +1,11 @@
+Player Queue (To Explore) - Summoner Name, Account ID
+Players Found - Summoner Name, Account ID
+Game Queue (To Explore) - Game ID
+Games Explored - All the stats
+    runes
+    items
+    skill Order
+    win/loss
+    lane/role
+
+S3 Bucket for the queues
