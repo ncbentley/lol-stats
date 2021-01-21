@@ -9,6 +9,7 @@ import os
 REGION = 'na1'
 API_URL = f'https://{REGION}.api.riotgames.com'
 HEADERS = {'X-Riot-Token': os.environ.get("RIOT_API_KEY")}
+PATCH_TIME = 1610051083000
 s = requests.Session()
 
 get_last_modified = lambda obj: int(datetime.timestamp(obj.last_modified))
@@ -22,10 +23,10 @@ def get_next_player():
     if len(players) < 1:
         return None
     player = players[0].key
-    # try:
-    #     players[0].delete()
-    # except:
-    #     return get_next_player()
+    try:
+        players[0].delete()
+    except:
+        return get_next_player()
     return player
 
 def get_next_game():
@@ -53,8 +54,11 @@ def get_player_or_game():
     return get_next_player() if players >= games else get_next_game()
 
 def explore_player(accountId, begin=0):
-    print(f'{API_URL}/lol/match/v4/matchlists/by-account/{accountId}?queue=420&beginIndex={begin}')
-    response = s.get(f'{API_URL}/lol/match/v4/matchlists/by-account/{accountId}?queue=420&beginIndex={begin}', headers=HEADERS)
+    begin_time = PATCH_TIME
+    # TODO: Check DB to see if player has been explored
+    # TODO: If so and it was over a week ago, explore again, override time as timestamp in db
+
+    response = s.get(f'{API_URL}/lol/match/v4/matchlists/by-account/{accountId}?queue=420&beginTime={begin_time}&beginIndex={begin}', headers=HEADERS)
     #TODO: Error handling for all possible repsonses!
     if response.status_code == 200:
         body = response.json()
@@ -62,15 +66,15 @@ def explore_player(accountId, begin=0):
         s3 = session.resource("s3")
         for match in body['matches']:
             pass
-            #s3.Bucket('lol-stats-games-queue').put_object(Key=str(match["gameId"]), Body='')
-            #print(f'{str(match["gameId"])} added to queue')
-        print(body['totalGames'], body['endIndex'])
+            s3.Bucket('lol-stats-games-queue').put_object(Key=str(match["gameId"]), Body='')
         if (body['totalGames'] > body['endIndex']):
-            explore_player(accountId, begin=body['endIndex']+1)
+            return explore_player(accountId, begin=body['endIndex']+1)
+        # TODO: Add player to DB as explored (include timestamp)
     elif response.status_code == 429:
         pass #handle rate limit
 
 def explore_game(gameId):
+    # TODO: Check DB to see if game has been explored
     return "Exploring Game"
 
 def explore(id):
