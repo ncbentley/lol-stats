@@ -12,7 +12,7 @@ API_URL = f'https://{REGION}.api.riotgames.com'
 HEADERS = {'X-Riot-Token': os.environ.get("RIOT_API_KEY")}
 PATCH_TIME = 1610051083000
 DB = mysql.connector.connect(
-  host="lol-stats-instance-1.cv3oxvzkk5zr.us-east-1.rds.amazonaws.com",
+  host=os.environ.get("DB_HOST"),
   user=os.environ.get("DB_LOGIN"),
   password=os.environ.get("DB_PASSWORD"),
   database="lol_stats"
@@ -31,10 +31,10 @@ def get_next_player():
     if len(players) < 1:
         return None
     player = players[0].key
-    # try:
-    #     players[0].delete()
-    # except:
-    #     return get_next_player()
+    try:
+        players[0].delete()
+    except:
+        return get_next_player()
     return player
 
 def get_next_game():
@@ -73,7 +73,6 @@ def explore_player(accountId, begin=0):
             begin_time = explored + 1
         else:
             return
-
     response = s.get(f'{API_URL}/lol/match/v4/matchlists/by-account/{accountId}?queue=420&beginTime={begin_time}&beginIndex={begin}', headers=HEADERS)
     #TODO: Error handling for all possible repsonses!
     if response.status_code == 200:
@@ -91,11 +90,52 @@ def explore_player(accountId, begin=0):
         DB.commit()
         cursor.close()
     elif response.status_code == 429:
-        pass #handle rate limit
+        pass #TODO: handle rate limit
 
 def explore_game(gameId):
-    # TODO: Check DB to see if game has been explored
-    return "Exploring Game"
+    cursor = DB.cursor()
+    cursor.execute("SELECT * FROM `games` WHERE `gameId` = %s", (gameId,))
+    game = cursor.fetchone()
+    cursor.close()
+    if not game:
+        response = s.get(f'{API_URL}/lol/match/v4/matches/{gameId}', headers=HEADERS)
+        #TODO: Error handling for all possible responses!
+        if response.status_code == 200:
+            body = response.json()
+            players = []
+            for player in body['participants']:
+                team = player['teamId'] / 100
+                win = player['stats']['win']
+                champion = player['championId']
+                spell1 = player['spell1Id']
+                spell2 = player['spell2Id']
+                item0 = player['stats']['item0']
+                item1 = player['stats']['item1']
+                item2 = player['stats']['item2']
+                item3 = player['stats']['item3']
+                item4 = player['stats']['item4']
+                item5 = player['stats']['item5']
+                item6 = player['stats']['item6']
+                perk0 = player['stats']['perk0']
+                perk1 = player['stats']['perk1']
+                perk2 = player['stats']['perk2']
+                perk3 = player['stats']['perk3']
+                perk4 = player['stats']['perk4']
+                perk5 = player['stats']['perk5']
+                players.append((gameId, champion, team, win, spell1, spell2, item0, item1, item2, item3, item4, item5, item6, perk0, perk1, perk2, perk3, perk4, perk5))
+            cursor = DB.cursor()
+            sql = "INSERT INTO games (gameId, champion, team, win, spell1, spell2, item0, item1, item2, item3, item4, item5, item6, perk0, perk1, perk2, perk3, perk4, perk5) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            cursor.executemany(sql, players)
+            DB.commit()
+            cursor.close()
+            for player in body['participantIdentities']:
+                player = player['player']
+                session = Session(profile_name="Default")
+                s3 = session.resource("s3")
+                s3.Bucket('lol-stats-players-queue').put_object(Key=player['accountId'], Body='')
+        elif response.status_code == 429:
+            pass #TODO: Handle rate limit
+    
 
 def explore(id):
     if len(id) > 12:
@@ -104,7 +144,8 @@ def explore(id):
         return explore_game(id)
 
 if __name__ == '__main__':
-    start = time.time()
-    id = get_player_or_game()
-    print(explore(id))
-    print(time.time() - start)
+    while True:
+        start = time.time()
+        id = get_player_or_game()
+        print(explore(id))
+        print(time.time() - start)
