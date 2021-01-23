@@ -74,7 +74,6 @@ def explore_player(accountId, begin=0):
         else:
             return
     response = s.get(f'{API_URL}/lol/match/v4/matchlists/by-account/{accountId}?queue=420&beginTime={begin_time}&beginIndex={begin}', headers=HEADERS)
-    #TODO: Error handling for all possible repsonses!
     if response.status_code == 200:
         body = response.json()
         session = Session(profile_name="Default")
@@ -90,7 +89,7 @@ def explore_player(accountId, begin=0):
         DB.commit()
         cursor.close()
     elif response.status_code == 429:
-        pass #TODO: handle rate limit
+        time.sleep(response.headers.get("Retry-After"))
 
 def explore_game(gameId):
     cursor = DB.cursor()
@@ -99,7 +98,6 @@ def explore_game(gameId):
     cursor.close()
     if not game:
         response = s.get(f'{API_URL}/lol/match/v4/matches/{gameId}', headers=HEADERS)
-        #TODO: Error handling for all possible responses!
         if response.status_code == 200:
             body = response.json()
             players = []
@@ -134,7 +132,7 @@ def explore_game(gameId):
                 s3 = session.resource("s3")
                 s3.Bucket('lol-stats-players-queue').put_object(Key=player['accountId'], Body='')
         elif response.status_code == 429:
-            pass #TODO: Handle rate limit
+            time.sleep(response.headers.get("Retry-After"))
     
 
 def explore(id):
