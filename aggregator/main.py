@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import os
 import mysql.connector
+import random
 
 REGION = 'na1'
 API_URL = f'https://{REGION}.api.riotgames.com'
@@ -26,8 +27,8 @@ def get_next_player():
     session = Session(aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"), aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
     s3 = session.resource("s3")
     bckt = s3.Bucket("lol-stats-players-queue")
-    players = [player for player in bckt.objects.all()]
-    players = [player for player in sorted(players, key=get_last_modified)]
+    players = bckt.objects.filter()
+    players = [obj for obj in sorted(players, key=lambda x: x.last_modified)]
     if len(players) < 1:
         return None
     player = players[0].key
@@ -41,8 +42,8 @@ def get_next_game():
     session = Session(aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"), aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
     s3 = session.resource("s3")
     bckt = s3.Bucket("lol-stats-games-queue")
-    games = [game for game in bckt.objects.all()]
-    games = [game for game in sorted(games, key=get_last_modified)]
+    games = bckt.objects.filter()
+    games = [obj for obj in sorted(games, key=lambda x: x.last_modified)]
     if len(games) < 1:
         return None
     game = games[0].key
@@ -53,13 +54,7 @@ def get_next_game():
     return game
 
 def get_player_or_game():
-    session = Session(aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"), aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
-    s3 = session.resource("s3")
-    player_queue = s3.Bucket("lol-stats-players-queue")
-    players = sum(1 for _ in player_queue.objects.all())
-    game_queue = s3.Bucket("lol-stats-games-queue")
-    games = sum(1 for _ in game_queue.objects.all())
-    return get_next_player() if players >= games else get_next_game()
+    return get_next_player() if random.randrange(1, 100) <= 12 else get_next_game()
 
 def explore_player(accountId, begin=0):
     begin_time = PATCH_TIME
