@@ -44,10 +44,13 @@ def get_next_player():
 
 def get_next_game():
     if len(game_list) <= 0:
-        paginator = client.get_paginator('list_objects')
-        page_iterator = paginator.paginate(Bucket='lol-stats-games-queue')
-        for page in page_iterator:
-            game_list.extend([obj['Key'] for obj in page['Contents']])
+        try:
+            paginator = client.get_paginator('list_objects')
+            page_iterator = paginator.paginate(Bucket='lol-stats-games-queue')
+            for page in page_iterator:
+                game_list.extend([obj['Key'] for obj in page['Contents']])
+        except:
+            return get_next_player()
     if len(game_list) < 1:
         return None
     game = random.choice(game_list)
@@ -72,6 +75,27 @@ def explore_player(accountId, begin=0):
             begin_time = explored + 1
         else:
             return
+    response = s.get(f'{API_URL}/lol/summoner/v4/summoners/by-account/{accountId}', headers=HEADERS)
+    if response.status_code != 200:
+        print("couldn't get account")
+        if response.status_code == 429:
+            time.sleep(int(response.headers.get("Retry-After")))
+    body = response.json()
+    summonerId = body['id']
+    response = s.get(f'{API_URL}/lol/league/v4/entries/by-summoner/{summonerId}', headers=HEADERS)
+    if response.status_code != 200:
+        print("couldn't get matches")
+        if response.status_code == 429:
+            time.sleep(int(response.headers.get("Retry-After")))
+    body = response.json()
+    keep = False
+    for body in body:
+        if body['queueType'] == 'RANKED_SOLO_5x5' and body['tier'] != 'GOLD' and body['tier'] != 'SILVER' and body['tier'] != 'BRONZE' and not (body['tier'] == 'PLATINUM' and (body['rank'] == 'III' or body['rank'] == 'IV')):
+            keep = True
+        if keep:
+            print(body['tier'], body['rank'])
+    if not keep:
+        return
     response = s.get(f'{API_URL}/lol/match/v4/matchlists/by-account/{accountId}?queue=420&beginTime={begin_time}&beginIndex={begin}', headers=HEADERS)
     if response.status_code == 200:
         body = response.json()
@@ -88,7 +112,7 @@ def explore_player(accountId, begin=0):
         DB.commit()
         cursor.close()
     elif response.status_code == 429:
-        time.sleep(response.headers.get("Retry-After"))
+        time.sleep(int(response.headers.get("Retry-After")))
 
 def explore_game(gameId):
     cursor = DB.cursor()
@@ -131,7 +155,7 @@ def explore_game(gameId):
                 s3 = session.resource("s3")
                 s3.Bucket('lol-stats-players-queue').put_object(Key=player['accountId'], Body='')
         elif response.status_code == 429:
-            time.sleep(response.headers.get("Retry-After"))
+            time.sleep(int(response.headers.get("Retry-After")))
     
 
 def explore(id):
