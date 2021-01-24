@@ -1,4 +1,5 @@
 from boto3.session import Session
+import boto3
 from datetime import datetime
 import time
 import requests
@@ -19,36 +20,39 @@ DB = mysql.connector.connect(
   database="lol_stats"
 )
 
+player_list = []
+game_list = []
+
 s = requests.Session()
 
-get_last_modified = lambda obj: int(datetime.timestamp(obj.last_modified))
+client = boto3.client('s3', aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"), aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
 
 def get_next_player():
-    session = Session(aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"), aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
-    s3 = session.resource("s3")
-    bckt = s3.Bucket("lol-stats-players-queue")
-    players = bckt.objects.filter()
-    players = [obj for obj in sorted(players, key=lambda x: x.last_modified)]
-    if len(players) < 1:
+    if len(player_list) <= 0:
+        paginator = client.get_paginator('list_objects')
+        page_iterator = paginator.paginate(Bucket='lol-stats-players-queue')
+        for page in page_iterator:
+            player_list.extend([obj['Key'] for obj in page['Contents']])
+    if len(player_list) < 1:
         return None
-    player = players[0].key
+    player = random.choice(player_list)
     try:
-        players[0].delete()
+        client.delete_object(Bucket='lol-stats-players-queue', Key=player)
     except:
         return get_next_player()
     return player
 
 def get_next_game():
-    session = Session(aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"), aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
-    s3 = session.resource("s3")
-    bckt = s3.Bucket("lol-stats-games-queue")
-    games = bckt.objects.filter()
-    games = [obj for obj in sorted(games, key=lambda x: x.last_modified)]
-    if len(games) < 1:
+    if len(game_list) <= 0:
+        paginator = client.get_paginator('list_objects')
+        page_iterator = paginator.paginate(Bucket='lol-stats-games-queue')
+        for page in page_iterator:
+            game_list.extend([obj['Key'] for obj in page['Contents']])
+    if len(game_list) < 1:
         return None
-    game = games[0].key
+    game = random.choice(game_list)
     try:
-        games[0].delete()
+        client.delete_object(Bucket='lol-stats-games-queue', Key=game)
     except:
         return get_next_game()
     return game
